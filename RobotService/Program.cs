@@ -1,49 +1,74 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-
-namespace RobotService
+﻿namespace RobotService
 {
-    class Program
-    {
-        const string path = @"C:\#Robot\data\";
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Collections.Generic;
+    using System.Threading;
 
-        static void Main(string[] args)
+    internal sealed class Program
+    {
+        private const string BasePath = @"C:\#Robot\data";
+        private const string WaitDirectoryName = @"wait";
+        private const string WorkDirectoryName = @"work";
+        private const string DoneDirectoryName = @"done";
+        private const int ProcessDelay = 5000;
+
+        private static void Main()
         {
-            Program program = new Program();
-            program.Manager();
+            Process();
         }
 
-        private void Manager()
+
+
+        private static void Process()
         {
             while (true)
             {
-                Thread.Sleep(5000);
-                Console.Write(".");
-                string folder = GetNextFolder();
-                if (folder == "")
-                    continue;
-                Console.WriteLine();
-                Console.WriteLine("Working on " + folder);
-                MoveFolder(folder, "wait", "work");
-                Robot robot = Robot.CreateRobot(path + "work\\" + folder);
-                robot.Start();
-                MoveFolder(folder, "work", "done");
+                Ping();
+                Work();
+                Delay();
             }
         }
 
-        private string GetNextFolder()
+        private static void Work()
         {
-            foreach (string folder in Directory.GetDirectories(path + "wait\\"))
-                return Path.GetFileName(folder);
-            return "";
+            var folders = GetFolders();
+
+            foreach (var folder in folders)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"Working on {folder}");
+
+                MoveFolder(folder, WaitDirectoryName, WorkDirectoryName);
+
+                var robot = Robot.CreateRobot(Path.Combine(BasePath, WorkDirectoryName, folder));
+
+                robot.Start();
+
+                MoveFolder(folder, WorkDirectoryName, DoneDirectoryName);
+            }
         }
 
-        private void MoveFolder(string folder, string from, string to)
+        private static void Ping()
         {
-            Directory.Move(
-                    path + from + "\\" + folder,
-                    path + to + "\\" + folder);
+            Console.Write(".");
+        }
+
+        private static void Delay()
+        {
+            Thread.Sleep(ProcessDelay);
+        }
+
+        private static IEnumerable<string> GetFolders()
+        {
+            return Directory.GetDirectories(Path.Combine(BasePath, WaitDirectoryName))
+                .Select(Path.GetFileName);
+        }
+
+        private static void MoveFolder(string folder, string from, string to)
+        {
+            Directory.Move(Path.Combine(BasePath, from, folder), Path.Combine(BasePath, to, folder));
         }
     }
 }
